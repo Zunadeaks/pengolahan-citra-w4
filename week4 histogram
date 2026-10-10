@@ -1,0 +1,182 @@
+import cv2
+import numpy as np
+import matplotlib.pyplot as plt
+
+
+def calculate_histogram(image):
+
+    histogram = np.zeros(256, dtype=int)
+
+    height, width = image.shape
+
+    for i in range(height):
+        for j in range(width):
+            intensity = image[i, j]
+            histogram[intensity] += 1
+
+    return histogram
+
+
+
+def histogram_equalization(image):
+
+    hist = calculate_histogram(image)
+
+    cdf = np.cumsum(hist)
+
+    cdf_min = cdf[cdf > 0][0]
+
+    total_pixel = image.size
+
+    equalized = np.zeros(256)
+
+    for i in range(256):
+        equalized[i] = (
+            (cdf[i] - cdf_min) /
+            (total_pixel - cdf_min)
+        ) * 255
+
+    equalized = np.round(equalized)
+    equalized = np.clip(equalized, 0, 255)
+
+    output = np.zeros_like(image)
+
+    height, width = image.shape
+
+    for i in range(height):
+        for j in range(width):
+            output[i, j] = equalized[image[i, j]]
+
+    return output.astype(np.uint8)
+
+
+
+def histogram_specification(input_image, reference_image):
+
+    hist_input = calculate_histogram(input_image)
+    hist_reference = calculate_histogram(reference_image)
+
+    cdf_input = np.cumsum(hist_input)
+    cdf_reference = np.cumsum(hist_reference)
+
+    cdf_input = cdf_input / input_image.size
+    cdf_reference = cdf_reference / reference_image.size
+
+    mapping = np.zeros(256)
+
+    for i in range(256):
+
+        difference = np.abs(
+            cdf_reference - cdf_input[i]
+        )
+
+        mapping[i] = np.argmin(difference)
+
+    mapping = np.round(mapping)
+    mapping = np.clip(mapping, 0, 255)
+
+    output = np.zeros_like(input_image)
+
+    height, width = input_image.shape
+
+    for i in range(height):
+        for j in range(width):
+            output[i, j] = mapping[input_image[i, j]]
+
+    return output.astype(np.uint8)
+
+
+
+def main():
+
+    input_image = cv2.imread(
+        "Gambar1.jpg",
+        cv2.IMREAD_GRAYSCALE
+    )
+
+    reference_image = cv2.imread(
+        "Gambar2.jpg",
+        cv2.IMREAD_GRAYSCALE
+    )
+
+
+    if input_image is None:
+        print("Input image tidak ditemukan")
+        return
+
+
+    if reference_image is None:
+        print("Reference image tidak ditemukan")
+        return
+
+
+
+    histogram = calculate_histogram(input_image)
+
+    print("Histogram Input Image:")
+    print(histogram)
+
+
+
+    equalized_image = histogram_equalization(
+        input_image
+    )
+
+    cv2.imwrite(
+        "equalized_image.jpg",
+        equalized_image
+    )
+
+
+
+    matched_image = histogram_specification(
+        input_image,
+        reference_image
+    )
+
+    cv2.imwrite(
+        "matched_image.jpg",
+        matched_image
+    )
+
+
+
+    plt.figure(figsize=(12, 8))
+
+
+    plt.subplot(2, 3, 1)
+    plt.imshow(input_image, cmap="gray")
+    plt.title("Input Image")
+    plt.axis("off")
+
+
+    plt.subplot(2, 3, 2)
+    plt.imshow(equalized_image, cmap="gray")
+    plt.title("Histogram Equalization")
+    plt.axis("off")
+
+
+    plt.subplot(2, 3, 3)
+    plt.imshow(reference_image, cmap="gray")
+    plt.title("Reference Image")
+    plt.axis("off")
+
+
+    plt.subplot(2, 3, 4)
+    plt.imshow(matched_image, cmap="gray")
+    plt.title("Histogram Specification")
+    plt.axis("off")
+
+
+    plt.subplot(2, 3, 5)
+    plt.plot(histogram)
+    plt.title("Input Histogram")
+
+
+    plt.tight_layout()
+    plt.show()
+
+
+
+if __name__ == "__main__":
+    main()
